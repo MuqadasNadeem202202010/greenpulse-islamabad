@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GreenPulse Islamabad | Parks & Live Air Quality Map</title>
+  <meta name="description"
+        content="Interactive Web GIS of parks and green spaces in Islamabad and Rawalpindi with live air quality (AQI, PM2.5, PM10)." />
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
+
+  <!-- Leaflet -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+
+  <!-- Our styles -->
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+  <!-- ============ HEADER ============ -->
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark">◉</span>
+      <div>
+        <h1>GreenPulse <span>Islamabad</span></h1>
+        <p class="tagline">Parks &amp; green spaces with live air quality</p>
+      </div>
+    </div>
+
+    <div class="topbar-actions">
+      <button id="btnAbout" class="btn btn-ghost" type="button">About</button>
+      <button id="btnTheme" class="btn btn-icon" type="button" aria-label="Toggle theme">🌙</button>
+    </div>
+  </header>
+
+  <!-- ============ MAIN LAYOUT ============ -->
+  <main class="layout">
+
+    <!-- Left: controls + stats + list -->
+    <aside class="sidebar" id="sidebar">
+
+      <!-- Study area description (assignment requirement) -->
+      <section class="card intro">
+        <h2>Study Area</h2>
+        <p>
+          Islamabad and Rawalpindi, Pakistan. Park locations come from
+          OpenStreetMap (Overpass API) and each park is matched with live
+          air quality from the Open-Meteo Air Quality API.
+        </p>
+      </section>
+
+      <!-- Summary stats -->
+      <section class="stats" id="stats">
+        <div class="card stat">
+          <span class="stat-label">Total Parks</span>
+          <strong id="statTotal">–</strong>
+        </div>
+        <div class="card stat">
+          <span class="stat-label">Average AQI</span>
+          <strong id="statAvg">–</strong>
+        </div>
+        <div class="card stat">
+          <span class="stat-label">Cleanest Zone</span>
+          <strong id="statClean">–</strong>
+        </div>
+      </section>
+
+      <!-- Search + filters -->
+      <section class="card controls">
+        <label class="field">
+          <span>Search park</span>
+          <input id="searchInput" type="search" placeholder="e.g. Fatima Jinnah Park" autocomplete="off" />
+        </label>
+
+        <div class="field">
+          <span>Category</span>
+          <div class="chips" id="categoryChips">
+            <button class="chip active" data-cat="all" type="button" aria-pressed="true">All</button>
+            <button class="chip" data-cat="park" type="button" aria-pressed="false">🌳 Park</button>
+            <button class="chip" data-cat="garden" type="button" aria-pressed="false">🌸 Garden</button>
+            <button class="chip" data-cat="playground" type="button" aria-pressed="false">🛝 Playground</button>
+            <button class="chip" data-cat="forest" type="button" aria-pressed="false">🌲 Forest</button>
+          </div>
+        </div>
+
+        <div class="action-row">
+          <button id="btnBest" class="btn btn-primary" type="button">✨ Best park now</button>
+          <button id="btnNear" class="btn btn-accent" type="button">📍 Near me</button>
+        </div>
+        <button id="btnReset" class="btn btn-link" type="button">Reset filters</button>
+        <p id="appStatus" class="app-status" role="status" aria-live="polite"></p>
+      </section>
+
+      <!-- Results list -->
+      <section class="results">
+        <div class="results-head">
+          <h2>Parks</h2>
+          <span id="resultCount" class="pill">0</span>
+        </div>
+        <ul id="parkList" class="park-list" aria-live="polite">
+          <li class="skeleton" aria-hidden="true"></li>
+          <li class="skeleton" aria-hidden="true"></li>
+          <li class="skeleton" aria-hidden="true"></li>
+        </ul>
+      </section>
+    </aside>
+
+    <!-- Right: map -->
+    <section class="map-wrap">
+      <div id="map" aria-label="Interactive map of parks"></div>
+
+      <!-- AQI legend -->
+      <div class="legend card" id="legend">
+        <strong>US AQI</strong>
+        <span><i style="background:#4ADE9A"></i>Good</span>
+        <span><i style="background:#FFB547"></i>Moderate</span>
+        <span><i style="background:#FF9A3C"></i>USG</span>
+        <span><i style="background:#FF6B5B"></i>Unhealthy</span>
+        <span><i style="background:#A855F7"></i>Very Unhealthy</span>
+        <span><i style="background:#7C3AED"></i>Hazardous</span>
+        <span><i style="background:#7C8F8A"></i>No data</span>
+      </div>
+
+      <!-- Loading overlay -->
+      <div id="loader" class="loader" role="status">
+        <div class="spinner"></div>
+        <p id="loaderText">Fetching parks from OpenStreetMap…</p>
+      </div>
+
+      <!-- Error banner -->
+      <div id="errorBox" class="error-box hidden" role="alert">
+        <strong>Something went wrong</strong>
+        <p id="errorText"></p>
+        <button id="btnRetry" class="btn btn-primary" type="button">Retry</button>
+      </div>
+    </section>
+
+    <!-- Detail panel (park select karne par) -->
+    <aside id="detailPanel" class="detail hidden" aria-live="polite"></aside>
+  </main>
+
+  <!-- ============ FOOTER (attribution) ============ -->
+  <footer class="footer">
+    <span>Data: <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap contributors</a>
+      (ODbL) via Overpass API</span>
+    <span>·</span>
+    <span>Air quality: <a href="https://atmosphere.copernicus.eu/" target="_blank" rel="noopener">Copernicus Atmosphere Monitoring Service (CAMS)</a>
+      data via <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a></span>
+  </footer>
+
+  <!-- About modal -->
+  <dialog id="aboutDialog" class="about">
+    <h2>About GreenPulse</h2>
+    <p>
+      GreenPulse maps public parks, gardens, playgrounds and wooded areas across
+      Islamabad and Rawalpindi, then pairs each location with the latest
+      available air-quality reading from Open-Meteo, which is based on the
+      Copernicus Atmosphere Monitoring Service (CAMS).
+    </p>
+    <ul>
+      <li><b>Places:</b> OpenStreetMap data retrieved through the Overpass API.</li>
+      <li><b>Air quality:</b> Open-Meteo US AQI, PM2.5 and PM10. Readings are
+        model-based and grouped into nearby zones to reduce requests; they are
+        estimates for a park's area, not on-site sensor measurements, so nearby
+        parks often show the same value.</li>
+      <li><b>Attribution:</b> © OpenStreetMap contributors (ODbL); Copernicus
+        CAMS data via Open-Meteo (CC BY 4.0).</li>
+      <li><b>Use:</b> Open-Meteo's free API is for non-commercial use and has
+        <a href="https://open-meteo.com/en/terms" target="_blank" rel="noopener">published rate limits</a>.
+        Public data services are best-effort and may be unavailable.</li>
+    </ul>
+    <button id="btnAboutClose" class="btn btn-primary" type="button">Got it</button>
+  </dialog>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+          integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+          crossorigin=""></script>
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/map.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
